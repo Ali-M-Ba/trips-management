@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import { Trip } from "@/lib/models/Trip";
 import { Group } from "@/lib/models/Group";
 import { jsonError, requireUser, serializeTripWithGroups } from "@/lib/api";
@@ -12,18 +13,23 @@ export async function DELETE(_request: Request, { params }: Ctx) {
   if ("response" in auth) return auth.response;
 
   const { id, groupId } = await params;
+  if (!mongoose.isValidObjectId(id) || !mongoose.isValidObjectId(groupId)) {
+    return jsonError("Group not found", 404);
+  }
+
   const trip = await Trip.findById(id);
   if (!trip) return jsonError("Trip not found", 404);
 
-  const group = await Group.findOne({ _id: groupId, tripId: id });
+  const group = await Group.findOne({ _id: groupId, tripId: trip._id });
   if (!group) return jsonError("Group not found", 404);
 
+  const savedGroupId = String(group._id);
   const seatNumbers = trip.seats
-    .filter((seat) => String(seat.groupId) === groupId)
+    .filter((seat) => String(seat.groupId) === savedGroupId)
     .map((seat) => seat.seatNumber);
 
   for (const seat of trip.seats) {
-    if (String(seat.groupId) === groupId) {
+    if (String(seat.groupId) === savedGroupId) {
       seat.groupId = null;
       const stillOccupied =
         Boolean(seat.passengerName?.trim()) || Boolean(seat.paymentNote?.trim());
@@ -40,7 +46,7 @@ export async function DELETE(_request: Request, { params }: Ctx) {
     tripId: String(trip._id),
     action: "Ungrouped seats",
     description: `Removed group “${group.name}” from seats ${seatNumbers.join(", ")}.`,
-    before: { groupId, name: group.name, seatNumbers },
+    before: { groupId: savedGroupId, name: group.name, seatNumbers },
     after: { groupId: null },
   });
 

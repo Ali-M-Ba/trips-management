@@ -31,7 +31,8 @@ export default function BusPlanPage() {
   const [draftNote, setDraftNote] = useState("");
   const [mergeOpen, setMergeOpen] = useState(false);
   const [groupName, setGroupName] = useState("");
-  const [, force] = useState(0);
+  const [historyDepth, setHistoryDepth] = useState({ past: 0, future: 0 });
+  const [seatError, setSeatError] = useState("");
 
   const { data } = useQuery({
     queryKey: ["trip", params.id],
@@ -54,7 +55,7 @@ export default function BusPlanPage() {
   function remember() {
     past.current.push(snapshot());
     future.current = [];
-    force((value) => value + 1);
+    setHistoryDepth({ past: past.current.length, future: future.current.length });
   }
 
   const saveSeat = useMutation({
@@ -107,7 +108,12 @@ export default function BusPlanPage() {
     },
     onSuccess: async () => {
       setActiveSeat(null);
+      setSeatError("");
       await queryClient.invalidateQueries({ queryKey: ["trip", params.id] });
+      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+    onError: (err) => {
+      setSeatError(err instanceof Error ? err.message : "Could not ungroup seats");
     },
   });
 
@@ -118,7 +124,7 @@ export default function BusPlanPage() {
     });
     await queryClient.invalidateQueries({ queryKey: ["trip", params.id] });
     await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-    force((value) => value + 1);
+    setHistoryDepth({ past: past.current.length, future: future.current.length });
   }
 
   async function undo() {
@@ -146,6 +152,7 @@ export default function BusPlanPage() {
     }
     const seat = trip?.seats.find((item) => item.seatNumber === seatNumber);
     if (!seat) return;
+    setSeatError("");
     setActiveSeat(seat);
     setDraftName(seat.passengerName);
     setDraftPayment(seat.paymentStatus ?? "UNPAID");
@@ -153,8 +160,21 @@ export default function BusPlanPage() {
   }
 
   async function closeSeat() {
+    if (ungroup.isPending) return;
     if (activeSeat) await saveSeat.mutateAsync();
     setActiveSeat(null);
+  }
+
+  async function ungroupActiveSeat() {
+    const groupId = activeSeat?.groupId;
+    if (!groupId) return;
+
+    try {
+      await saveSeat.mutateAsync();
+      await ungroup.mutateAsync(groupId);
+    } catch {
+      // Mutation handlers render the useful message.
+    }
   }
 
   return (
@@ -164,10 +184,10 @@ export default function BusPlanPage() {
         onBack={() => router.push(`/trips/${params.id}`)}
         actions={
           <div className="flex gap-2">
-            <Button variant="secondary" className="px-3" onClick={undo} disabled={!past.current.length}>
+            <Button variant="secondary" className="px-3" onClick={undo} disabled={!historyDepth.past}>
               Cancel
             </Button>
-            <Button variant="secondary" className="px-3" onClick={redo} disabled={!future.current.length}>
+            <Button variant="secondary" className="px-3" onClick={redo} disabled={!historyDepth.future}>
               Forward
             </Button>
           </div>
@@ -259,13 +279,17 @@ export default function BusPlanPage() {
             Group: {groupLookup.get(activeSeat.groupId) || "Unnamed group"}
           </p>
         ) : null}
+        {seatError ? (
+          <p className="mt-4 text-sm font-semibold text-seat-taken">{seatError}</p>
+        ) : null}
         {activeSeat?.groupId ? (
           <Button
             className="mt-4 w-full"
             variant="secondary"
-            onClick={() => ungroup.mutate(activeSeat.groupId!)}
+            onClick={() => void ungroupActiveSeat()}
+            disabled={saveSeat.isPending || ungroup.isPending}
           >
-            Ungroup
+            {ungroup.isPending ? "Ungrouping..." : "Ungroup"}
           </Button>
         ) : null}
       </Modal>

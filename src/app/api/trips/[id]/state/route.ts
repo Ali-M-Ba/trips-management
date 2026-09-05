@@ -52,13 +52,16 @@ export async function POST(request: Request, { params }: Ctx) {
     });
   }
 
-  trip.seats = parsed.data.seats.map((seat) => ({
-    seatNumber: seat.seatNumber,
-    passengerName: seat.passengerName,
-    paymentStatus: seat.paymentStatus,
-    paymentNote: seat.paymentNote,
-    groupId: seat.groupId ? (idMap.get(seat.groupId) ?? null) : null,
-  }));
+  trip.set(
+    "seats",
+    parsed.data.seats.map((seat) => ({
+      seatNumber: seat.seatNumber,
+      passengerName: seat.passengerName,
+      paymentStatus: seat.paymentStatus,
+      paymentNote: seat.paymentNote,
+      groupId: seat.groupId ? (idMap.get(seat.groupId) ?? null) : null,
+    })),
+  );
 
   await trip.save();
   return NextResponse.json({ trip: await serializeTripWithGroups(trip) });

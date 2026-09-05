@@ -17,7 +17,7 @@ const SeatSchema = new Schema(
 
 const TripSchema = new Schema(
   {
-    name: { type: String, default: "" },
+    name: { type: String, required: true, trim: true },
     dateText: { type: String, default: "" },
     status: {
       type: String,

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import mongoose from "mongoose";
 import { Trip } from "@/lib/models/Trip";
 import { jsonError, requireUser, serializeTripWithGroups } from "@/lib/api";
 import { logChange } from "@/lib/history";
@@ -42,7 +43,10 @@ export async function PATCH(request: Request, { params }: Ctx) {
     seat.paymentStatus = parsed.data.paymentStatus;
   }
   if (parsed.data.groupId !== undefined) {
-    seat.groupId = parsed.data.groupId;
+    seat.groupId =
+      parsed.data.groupId && mongoose.isValidObjectId(parsed.data.groupId)
+        ? new mongoose.Types.ObjectId(parsed.data.groupId)
+        : null;
   }
 
   const hasInfo =

@@ -35,7 +35,10 @@ async function resolveUri() {
 
   if (cache.memory) return cache.memory.getUri();
 
-  const dbPath = path.join(process.cwd(), ".data", "mongo");
+  const dbPath = path.resolve(/*turbopackIgnore: true*/
+    process.cwd(),
+    process.env.MONGODB_DATA_DIR ?? [".data", "mongo"].join(path.sep),
+  );
   fs.mkdirSync(dbPath, { recursive: true });
 
   cache.memory = await MongoMemoryServer.create({

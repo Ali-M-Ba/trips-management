@@ -2,7 +2,8 @@
 
 import { Button, Input, Modal, Screen, StatCard, TopBar } from "@/components/ui";
 import { api } from "@/lib/client";
-import type { TripWithGroups } from "@/lib/types";
+import { TRIP_STATUSES, type TripStatus, type TripWithGroups } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import { MoreHorizontal } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -16,6 +17,9 @@ export default function TripDetailsPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [name, setName] = useState("");
+  const [dateText, setDateText] = useState("");
+  const [status, setStatus] = useState<TripStatus | null>(null);
+  const [editError, setEditError] = useState("");
 
   const { data } = useQuery({
     queryKey: ["trip", params.id],
@@ -24,16 +28,23 @@ export default function TripDetailsPage() {
 
   const trip = data?.trip;
 
-  const rename = useMutation({
-    mutationFn: () =>
-      api(`/api/trips/${params.id}`, {
+  const updateTrip = useMutation({
+    mutationFn: () => {
+      if (!name.trim()) throw new Error("Trip name is required");
+
+      return api(`/api/trips/${params.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ name }),
-      }),
+        body: JSON.stringify({ name, dateText, status }),
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["trip", params.id] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       setEditOpen(false);
+      setEditError("");
+    },
+    onError: (err) => {
+      setEditError(err instanceof Error ? err.message : "Could not update trip");
     },
   });
 
@@ -54,7 +65,14 @@ export default function TripDetailsPage() {
           </Button>
         }
       />
-      <p className="mb-6 text-ink-soft">{trip?.dateText || "No date"}</p>
+      <div className="mb-6 flex flex-wrap items-center gap-2 text-sm text-ink-soft">
+        <span>{trip?.dateText || "No date"}</span>
+        {trip?.status ? (
+          <span className="rounded-full border border-line bg-white/80 px-3 py-1 font-semibold uppercase tracking-wide text-ink">
+            {trip.status}
+          </span>
+        ) : null}
+      </div>
 
       <div className="grid grid-cols-2 gap-3">
         <StatCard label="Occupied" value={trip?.stats.occupied ?? 0} />
@@ -81,11 +99,14 @@ export default function TripDetailsPage() {
             variant="secondary"
             onClick={() => {
               setName(trip?.name ?? "");
+              setDateText(trip?.dateText ?? "");
+              setStatus(trip?.status ?? null);
+              setEditError("");
               setMenuOpen(false);
               setEditOpen(true);
             }}
           >
-            Edit name
+            Edit trip
           </Button>
           <Button
             variant="danger"
@@ -99,9 +120,55 @@ export default function TripDetailsPage() {
         </div>
       </Modal>
 
-      <Modal open={editOpen} title="Edit name" onClose={() => setEditOpen(false)}>
-        <Input value={name} onChange={(event) => setName(event.target.value)} />
-        <Button className="mt-4 w-full" onClick={() => rename.mutate()}>
+      <Modal open={editOpen} title="Edit trip" onClose={() => setEditOpen(false)}>
+        <label className="block text-sm font-semibold uppercase tracking-wide text-ink-soft">
+          Trip name
+          <Input
+            className="mt-2"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            required
+          />
+        </label>
+        <label className="mt-4 block text-sm font-semibold uppercase tracking-wide text-ink-soft">
+          Date
+          <Input
+            className="mt-2"
+            value={dateText}
+            onChange={(event) => setDateText(event.target.value)}
+            placeholder="October 17-19"
+          />
+        </label>
+        <div className="mt-4">
+          <p className="text-sm font-semibold uppercase tracking-wide text-ink-soft">
+            Trip status
+          </p>
+          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {TRIP_STATUSES.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setStatus(status === option ? null : option)}
+                className={cn(
+                  "rounded-2xl border px-4 py-3 text-sm font-semibold uppercase tracking-wide",
+                  status === option
+                    ? "border-ink bg-ink text-paper"
+                    : "border-line bg-white/80 text-ink",
+                )}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+        </div>
+        {editError ? (
+          <p className="mt-4 text-sm font-semibold text-seat-taken">{editError}</p>
+        ) : null}
+        <Button
+          className="mt-4 w-full"
+          onClick={() => updateTrip.mutate()}
+          disabled={updateTrip.isPending || !name.trim()}
+        >
           Save
         </Button>
       </Modal>

@@ -23,7 +23,7 @@ export async function GET(_request: Request, { params }: Ctx) {
 }
 
 const patchSchema = z.object({
-  name: z.string().trim().optional(),
+  name: z.string().trim().min(1, "Trip name is required").optional(),
   dateText: z.string().trim().optional(),
   status: z.enum(TRIP_STATUSES).nullable().optional(),
 });

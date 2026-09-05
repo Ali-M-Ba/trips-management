@@ -7,7 +7,7 @@ import { logChange } from "@/lib/history";
 import { TRIP_STATUSES } from "@/lib/types";
 
 const schema = z.object({
-  name: z.string().trim().optional().default(""),
+  name: z.string().trim().min(1, "Trip name is required"),
   dateText: z.string().trim().optional().default(""),
   status: z.enum(TRIP_STATUSES).nullable().optional(),
 });

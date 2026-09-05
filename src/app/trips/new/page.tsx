@@ -16,6 +16,11 @@ export default function CreateTripPage() {
   const [pending, setPending] = useState(false);
 
   async function create() {
+    if (!name.trim()) {
+      setError("Trip name is required");
+      return;
+    }
+
     setPending(true);
     setError("");
     try {
@@ -42,6 +47,7 @@ export default function CreateTripPage() {
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder="Lithuania → Latvia"
+            required
           />
         </label>
         <label className="block text-sm font-semibold uppercase tracking-wide text-ink-soft">
@@ -76,7 +82,7 @@ export default function CreateTripPage() {
           </div>
         </div>
         {error ? <p className="text-sm font-semibold text-seat-taken">{error}</p> : null}
-        <Button className="w-full" onClick={create} disabled={pending}>
+        <Button className="w-full" onClick={create} disabled={pending || !name.trim()}>
           Create
         </Button>
       </div>
