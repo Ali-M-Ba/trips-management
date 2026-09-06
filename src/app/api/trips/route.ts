@@ -20,6 +20,7 @@ export async function POST(request: Request) {
   if (!parsed.success) return jsonError("Invalid trip data");
 
   const trip = await Trip.create({
+    userId: auth.user.id,
     name: parsed.data.name,
     dateText: parsed.data.dateText,
     status: parsed.data.status ?? null,

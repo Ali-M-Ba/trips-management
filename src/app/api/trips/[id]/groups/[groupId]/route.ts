@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
-import { Trip } from "@/lib/models/Trip";
 import { Group } from "@/lib/models/Group";
-import { jsonError, requireUser, serializeTripWithGroups } from "@/lib/api";
+import {
+  findOwnedTrip,
+  jsonError,
+  requireUser,
+  serializeTripWithGroups,
+} from "@/lib/api";
 import { logChange } from "@/lib/history";
 import { cleanupEmptyGroups } from "@/lib/groups";
 
@@ -17,10 +21,14 @@ export async function DELETE(_request: Request, { params }: Ctx) {
     return jsonError("Group not found", 404);
   }
 
-  const trip = await Trip.findById(id);
+  const trip = await findOwnedTrip(id, auth.user.id);
   if (!trip) return jsonError("Trip not found", 404);
 
-  const group = await Group.findOne({ _id: groupId, tripId: trip._id });
+  const group = await Group.findOne({
+    _id: groupId,
+    tripId: trip._id,
+    userId: auth.user.id,
+  });
   if (!group) return jsonError("Group not found", 404);
 
   const savedGroupId = String(group._id);
@@ -32,14 +40,15 @@ export async function DELETE(_request: Request, { params }: Ctx) {
     if (String(seat.groupId) === savedGroupId) {
       seat.groupId = null;
       const stillOccupied =
-        Boolean(seat.passengerName?.trim()) || Boolean(seat.paymentNote?.trim());
+        Boolean(seat.passengerName?.trim()) ||
+        Boolean(seat.paymentNote?.trim());
       if (!stillOccupied) seat.paymentStatus = null;
     }
   }
 
   await trip.save();
   await group.deleteOne();
-  await cleanupEmptyGroups(id);
+  await cleanupEmptyGroups(id, auth.user.id);
 
   await logChange({
     userId: auth.user.id,
@@ -50,5 +59,7 @@ export async function DELETE(_request: Request, { params }: Ctx) {
     after: { groupId: null },
   });
 
-  return NextResponse.json({ trip: await serializeTripWithGroups(trip) });
+  return NextResponse.json({
+    trip: await serializeTripWithGroups(trip, auth.user.id),
+  });
 }

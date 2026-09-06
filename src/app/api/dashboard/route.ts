@@ -5,12 +5,23 @@ export async function GET() {
   const auth = await requireUser();
   if ("response" in auth) return auth.response;
 
-  const trips = await Trip.find({ isArchived: false }).lean();
+  const trips = await Trip.find({
+    userId: auth.user.id,
+    isArchived: false,
+  }).lean();
   const serialized = trips.map(serializeTrip);
 
-  const plannedTrips = serialized.filter((trip) => trip.status === "PLANNED").length;
-  const occupiedSeats = serialized.reduce((sum, trip) => sum + trip.stats.occupied, 0);
-  const unpaidSeats = serialized.reduce((sum, trip) => sum + trip.stats.unpaid, 0);
+  const plannedTrips = serialized.filter(
+    (trip) => trip.status === "PLANNED",
+  ).length;
+  const occupiedSeats = serialized.reduce(
+    (sum, trip) => sum + trip.stats.occupied,
+    0,
+  );
+  const unpaidSeats = serialized.reduce(
+    (sum, trip) => sum + trip.stats.unpaid,
+    0,
+  );
 
   return NextResponse.json({
     user: auth.user,
@@ -19,6 +30,8 @@ export async function GET() {
       _id: trip._id,
       name: trip.name,
       dateText: trip.dateText,
+      status: trip.status,
+      occupiedSeats: trip.stats.occupied,
       freeSeats: trip.stats.free,
     })),
   });

@@ -6,6 +6,11 @@ export async function GET() {
   const auth = await requireUser();
   if ("response" in auth) return auth.response;
 
-  const trips = await Trip.find({ isArchived: true }).sort({ updatedAt: -1 });
+  const trips = await Trip.find({
+    userId: auth.user.id,
+    isArchived: true,
+  }).sort({
+    updatedAt: -1,
+  });
   return NextResponse.json({ trips: trips.map(serializeTrip) });
 }

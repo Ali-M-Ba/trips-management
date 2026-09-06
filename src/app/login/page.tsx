@@ -7,6 +7,8 @@ import { useState } from "react";
 
 export default function LoginPage() {
   const router = useRouter();
+  const [registering, setRegistering] = useState(false);
+  const [name, setName] = useState("");
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -17,9 +19,11 @@ export default function LoginPage() {
     setPending(true);
     setError("");
     try {
-      await api("/api/auth/login", {
+      await api(registering ? "/api/auth/register" : "/api/auth/login", {
         method: "POST",
-        body: JSON.stringify({ login, password }),
+        body: JSON.stringify(
+          registering ? { name, login, password } : { login, password },
+        ),
       });
       router.replace("/dashboard");
     } catch (err) {
@@ -39,8 +43,20 @@ export default function LoginPage() {
           Staff desk
         </p>
         <h1 className="mt-2 font-[family-name:var(--font-fraunces)] text-4xl">
-          Sign in
+          {registering ? "Create account" : "Sign in"}
         </h1>
+        {registering ? (
+          <label className="mt-8 block text-sm font-semibold uppercase tracking-wide text-ink-soft">
+            Name
+            <Input
+              className="mt-2"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              autoComplete="name"
+              required
+            />
+          </label>
+        ) : null}
         <label className="mt-8 block text-sm font-semibold uppercase tracking-wide text-ink-soft">
           Login
           <Input
@@ -58,7 +74,7 @@ export default function LoginPage() {
             type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            autoComplete="current-password"
+            autoComplete={registering ? "new-password" : "current-password"}
             required
           />
         </label>
@@ -68,11 +84,20 @@ export default function LoginPage() {
           </p>
         ) : null}
         <Button type="submit" className="mt-6 w-full" disabled={pending}>
-          {pending ? "Checking..." : "OK"}
+          {pending ? "Working..." : registering ? "Create account" : "Sign in"}
         </Button>
-        <p className="mt-4 text-center text-sm text-ink-soft">
-          First run seed: <span className="font-semibold text-ink">staff / staff123</span>
-        </p>
+        <button
+          type="button"
+          className="mt-4 w-full text-sm font-semibold text-brass-deep underline-offset-4 hover:underline"
+          onClick={() => {
+            setRegistering((value) => !value);
+            setError("");
+          }}
+        >
+          {registering
+            ? "Already have an account? Sign in"
+            : "Create a new account"}
+        </button>
       </form>
     </Screen>
   );

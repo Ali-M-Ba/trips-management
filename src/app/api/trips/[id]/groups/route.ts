@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { Trip } from "@/lib/models/Trip";
 import { Group } from "@/lib/models/Group";
-import { jsonError, requireUser, serializeTripWithGroups } from "@/lib/api";
+import {
+  findOwnedTrip,
+  jsonError,
+  requireUser,
+  serializeTripWithGroups,
+} from "@/lib/api";
 import { logChange } from "@/lib/history";
 import { cleanupEmptyGroups } from "@/lib/groups";
 
@@ -18,13 +22,14 @@ export async function POST(request: Request, { params }: Ctx) {
   if ("response" in auth) return auth.response;
 
   const { id } = await params;
-  const trip = await Trip.findById(id);
+  const trip = await findOwnedTrip(id, auth.user.id);
   if (!trip) return jsonError("Trip not found", 404);
 
   const parsed = schema.safeParse(await request.json());
   if (!parsed.success) return jsonError("Select seats and enter a group name");
 
   const group = await Group.create({
+    userId: auth.user.id,
     tripId: trip._id,
     name: parsed.data.name,
   });
@@ -43,7 +48,7 @@ export async function POST(request: Request, { params }: Ctx) {
   }
 
   await trip.save();
-  await cleanupEmptyGroups(String(trip._id));
+  await cleanupEmptyGroups(String(trip._id), auth.user.id);
 
   await logChange({
     userId: auth.user.id,
@@ -58,5 +63,7 @@ export async function POST(request: Request, { params }: Ctx) {
     },
   });
 
-  return NextResponse.json({ trip: await serializeTripWithGroups(trip) });
+  return NextResponse.json({
+    trip: await serializeTripWithGroups(trip, auth.user.id),
+  });
 }

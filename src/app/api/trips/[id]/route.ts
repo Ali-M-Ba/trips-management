@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import mongoose from "mongoose";
-import { Trip } from "@/lib/models/Trip";
 import { Group } from "@/lib/models/Group";
-import { jsonError, requireUser, serializeTripWithGroups } from "@/lib/api";
+import {
+  findOwnedTrip,
+  jsonError,
+  requireUser,
+  serializeTripWithGroups,
+} from "@/lib/api";
 import { logChange } from "@/lib/history";
 import { TRIP_STATUSES } from "@/lib/types";
 
@@ -16,10 +20,12 @@ export async function GET(_request: Request, { params }: Ctx) {
   const { id } = await params;
   if (!mongoose.isValidObjectId(id)) return jsonError("Trip not found", 404);
 
-  const trip = await Trip.findById(id);
+  const trip = await findOwnedTrip(id, auth.user.id);
   if (!trip) return jsonError("Trip not found", 404);
 
-  return NextResponse.json({ trip: await serializeTripWithGroups(trip) });
+  return NextResponse.json({
+    trip: await serializeTripWithGroups(trip, auth.user.id),
+  });
 }
 
 const patchSchema = z.object({
@@ -33,7 +39,7 @@ export async function PATCH(request: Request, { params }: Ctx) {
   if ("response" in auth) return auth.response;
 
   const { id } = await params;
-  const trip = await Trip.findById(id);
+  const trip = await findOwnedTrip(id, auth.user.id);
   if (!trip) return jsonError("Trip not found", 404);
 
   const parsed = patchSchema.safeParse(await request.json());
@@ -72,7 +78,9 @@ export async function PATCH(request: Request, { params }: Ctx) {
     after,
   });
 
-  return NextResponse.json({ trip: await serializeTripWithGroups(trip) });
+  return NextResponse.json({
+    trip: await serializeTripWithGroups(trip, auth.user.id),
+  });
 }
 
 export async function DELETE(_request: Request, { params }: Ctx) {
@@ -80,7 +88,7 @@ export async function DELETE(_request: Request, { params }: Ctx) {
   if ("response" in auth) return auth.response;
 
   const { id } = await params;
-  const trip = await Trip.findById(id);
+  const trip = await findOwnedTrip(id, auth.user.id);
   if (!trip) return jsonError("Trip not found", 404);
 
   const snapshot = {
@@ -89,7 +97,7 @@ export async function DELETE(_request: Request, { params }: Ctx) {
     status: trip.status,
   };
 
-  await Group.deleteMany({ tripId: trip._id });
+  await Group.deleteMany({ tripId: trip._id, userId: auth.user.id });
   await trip.deleteOne();
 
   await logChange({

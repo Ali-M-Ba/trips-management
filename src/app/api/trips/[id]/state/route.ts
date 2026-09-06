@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import mongoose from "mongoose";
-import { Trip } from "@/lib/models/Trip";
 import { Group } from "@/lib/models/Group";
-import { jsonError, requireUser, serializeTripWithGroups } from "@/lib/api";
+import {
+  findOwnedTrip,
+  jsonError,
+  requireUser,
+  serializeTripWithGroups,
+} from "@/lib/api";
 import { PAYMENT_STATUSES } from "@/lib/types";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -31,13 +35,13 @@ export async function POST(request: Request, { params }: Ctx) {
   if ("response" in auth) return auth.response;
 
   const { id } = await params;
-  const trip = await Trip.findById(id);
+  const trip = await findOwnedTrip(id, auth.user.id);
   if (!trip) return jsonError("Trip not found", 404);
 
   const parsed = schema.safeParse(await request.json());
   if (!parsed.success) return jsonError("Invalid snapshot");
 
-  await Group.deleteMany({ tripId: trip._id });
+  await Group.deleteMany({ tripId: trip._id, userId: auth.user.id });
 
   const idMap = new Map<string, mongoose.Types.ObjectId>();
   for (const group of parsed.data.groups) {
@@ -47,6 +51,7 @@ export async function POST(request: Request, { params }: Ctx) {
     idMap.set(group._id, objectId);
     await Group.create({
       _id: objectId,
+      userId: auth.user.id,
       tripId: trip._id,
       name: group.name,
     });
@@ -64,5 +69,7 @@ export async function POST(request: Request, { params }: Ctx) {
   );
 
   await trip.save();
-  return NextResponse.json({ trip: await serializeTripWithGroups(trip) });
+  return NextResponse.json({
+    trip: await serializeTripWithGroups(trip, auth.user.id),
+  });
 }

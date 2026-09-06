@@ -1,8 +1,6 @@
 import bcrypt from "bcryptjs";
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
-import { connectDb } from "@/lib/mongodb";
-import { User } from "@/lib/models/User";
 import type { SessionUser } from "@/lib/types";
 
 const COOKIE = "trips_session";
@@ -71,17 +69,4 @@ export async function requireSession() {
     throw error;
   }
   return session;
-}
-
-export async function ensureSeedUser() {
-  await connectDb();
-  const login = process.env.SEED_LOGIN || "staff";
-  const existing = await User.findOne({ login });
-  if (existing) return;
-
-  await User.create({
-    login,
-    name: process.env.SEED_NAME || "Dispatcher",
-    passwordHash: await hashPassword(process.env.SEED_PASSWORD || "staff123"),
-  });
 }

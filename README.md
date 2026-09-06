@@ -13,4 +13,4 @@ Open [http://localhost:3000](http://localhost:3000).
 
 The first start downloads an embedded MongoDB into `.data/mongo` and keeps trip data there. Set `MONGODB_DATA_DIR` to use a different local data folder. To use your own database instead, set `MONGODB_URI` and `MONGODB_EMBEDDED=false` in `.env.local`.
 
-Default login after first run: `staff` / `staff123`.
+Create an account from the login screen after starting the app.

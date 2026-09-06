@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import { connectDb } from "@/lib/mongodb";
-import { ensureSeedUser, getSession } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 import type { SessionUser } from "@/lib/types";
 import { Group } from "@/lib/models/Group";
+import { Trip } from "@/lib/models/Trip";
 import { serializeSeat, tripStats } from "@/lib/seats";
 import { idString } from "@/lib/utils";
 
@@ -12,7 +14,11 @@ export function jsonError(message: string, status = 400) {
 
 export async function withDb() {
   await connectDb();
-  await ensureSeedUser();
+}
+
+export function findOwnedTrip(id: string, userId: string) {
+  if (!mongoose.isValidObjectId(id)) return null;
+  return Trip.findOne({ _id: id, userId });
 }
 
 export async function requireUser(): Promise<
@@ -59,9 +65,12 @@ export function serializeTrip(trip: {
   };
 }
 
-export async function serializeTripWithGroups(trip: Parameters<typeof serializeTrip>[0]) {
+export async function serializeTripWithGroups(
+  trip: Parameters<typeof serializeTrip>[0],
+  userId: string,
+) {
   const base = serializeTrip(trip);
-  const groups = await Group.find({ tripId: trip._id }).lean();
+  const groups = await Group.find({ tripId: trip._id, userId }).lean();
   return {
     ...base,
     groups: groups.map((group) => ({
